@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { SongRequest } from "@/data/users";
 
 interface SongQueueProps {
@@ -15,6 +16,9 @@ const modeColors = {
 };
 
 export default function SongQueue({ queue, onRemove, loading }: SongQueueProps) {
+  const searchParams = useSearchParams();
+  // URL param ?reveal=true untuk melihat siapa yang request suffer mode
+  const revealSuffer = searchParams.get("reveal") === "true";
   // Loading state
   if (loading) {
     return (
@@ -77,7 +81,11 @@ export default function SongQueue({ queue, onRemove, loading }: SongQueueProps) 
               {/* Song Info */}
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm sm:text-base text-foreground truncate">
-                  {request.songTitle} <span className="text-text-muted font-normal">-</span> <span className="text-text-secondary font-normal">{request.artist}</span>
+                  {request.mode === "suffer" && !revealSuffer ? (
+                    <span className="text-neon-purple/70 italic">🎵 Lagu Rahasia...</span>
+                  ) : (
+                    <>{request.songTitle} <span className="text-text-muted font-normal">-</span> <span className="text-text-secondary font-normal">{request.artist}</span></>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {request.mode === "duet" && request.duetPartner ? (
@@ -85,6 +93,8 @@ export default function SongQueue({ queue, onRemove, loading }: SongQueueProps) 
                       <span className="text-neon-pink">{request.user.name}</span>
                       <span className="text-neon-cyan"> & {request.duetPartner.name}</span>
                     </span>
+                  ) : request.mode === "suffer" && !revealSuffer ? (
+                    <span className="text-xs text-neon-purple/70 italic">??? (siapa ya? 🤫)</span>
                   ) : (
                     <span className="text-xs text-neon-pink">{request.user.name}</span>
                   )}

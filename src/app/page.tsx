@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import BackgroundEffects from "@/components/BackgroundEffects";
 import Header from "@/components/Header";
 import UserSelector from "@/components/UserSelector";
@@ -20,18 +20,34 @@ export default function Home() {
   // Supabase real-time queue
   const { queue: songQueue, loading, error, addRequest, removeRequest } = useSongQueue();
 
-  // Track which modes the selected user has already submitted
-  const userSubmittedModes = useMemo(() => {
-    if (!selectedUser) return new Set<SongMode>();
-    return new Set(
-      songQueue
-        .filter((req) => req.user.id === selectedUser.id)
-        .map((req) => req.mode)
-    );
+  // Mode limits per user
+  const modeLimits: Record<SongMode, number> = {
+    solo: 5,
+    duet: 5,
+    suffer: 2,
+  };
+
+  // Track count of songs per mode for selected user
+  const userModeCount = useMemo(() => {
+    if (!selectedUser) return { solo: 0, duet: 0, suffer: 0 };
+    const counts = { solo: 0, duet: 0, suffer: 0 };
+    songQueue
+      .filter((req) => req.user.id === selectedUser.id)
+      .forEach((req) => {
+        counts[req.mode]++;
+      });
+    return counts;
   }, [selectedUser, songQueue]);
 
-  // Check if user has submitted all modes
-  const hasSubmittedAllModes = userSubmittedModes.size >= 3;
+  // Total songs submitted by user
+  const totalUserSongs = userModeCount.solo + userModeCount.duet + userModeCount.suffer;
+  const maxTotalSongs = modeLimits.solo + modeLimits.duet + modeLimits.suffer; // 12 total
+
+  // Check if user has reached all limits
+  const hasReachedAllLimits = 
+    userModeCount.solo >= modeLimits.solo && 
+    userModeCount.duet >= modeLimits.duet && 
+    userModeCount.suffer >= modeLimits.suffer;
 
   const showToast = (message: string) => {
     setToast({ message, isVisible: true });
@@ -102,9 +118,12 @@ export default function Home() {
     }
   };
 
+  // Check if selected mode has reached its limit
+  const isModeAtLimit = selectedMode ? userModeCount[selectedMode] >= modeLimits[selectedMode] : false;
+
   const isReadyToSubmit = selectedUser && selectedMode && 
     (selectedMode !== "duet" || duetPartner) &&
-    !userSubmittedModes.has(selectedMode); // Can't submit already submitted mode
+    !isModeAtLimit; // Can't submit if mode limit reached
 
   // Show error if Supabase connection fails
   if (error && !loading) {
@@ -132,7 +151,8 @@ export default function Home() {
               selectedUser={selectedUser}
               duetPartner={duetPartner}
               onSelectDuetPartner={setDuetPartner}
-              submittedModes={userSubmittedModes}
+              modeCount={userModeCount}
+              modeLimits={modeLimits}
             />
             
             <SongInput 
@@ -140,11 +160,13 @@ export default function Home() {
               disabled={!isReadyToSubmit}
             />
 
-            <SongQueue 
-              queue={songQueue}
-              onRemove={handleRemoveRequest}
-              loading={loading}
-            />
+            <Suspense fallback={<div className="text-center text-text-muted">Loading...</div>}>
+              <SongQueue 
+                queue={songQueue}
+                onRemove={handleRemoveRequest}
+                loading={loading}
+              />
+            </Suspense>
           </main>
         </div>
 

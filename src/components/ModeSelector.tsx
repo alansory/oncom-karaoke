@@ -8,7 +8,8 @@ interface ModeSelectorProps {
   selectedUser: User | null;
   duetPartner: User | null;
   onSelectDuetPartner: (user: User | null) => void;
-  submittedModes: Set<SongMode>;
+  modeCount: Record<SongMode, number>;
+  modeLimits: Record<SongMode, number>;
 }
 
 const modes: { id: SongMode; label: string; icon: string; color: string }[] = [
@@ -23,10 +24,16 @@ export default function ModeSelector({
   selectedUser,
   duetPartner,
   onSelectDuetPartner,
-  submittedModes
+  modeCount,
+  modeLimits
 }: ModeSelectorProps) {
   const availablePartners = users.filter(u => u.id !== selectedUser?.id);
-  const allModesSubmitted = submittedModes.size >= 3;
+  const totalSongs = modeCount.solo + modeCount.duet + modeCount.suffer;
+  const maxSongs = modeLimits.solo + modeLimits.duet + modeLimits.suffer;
+  const allLimitsReached = 
+    modeCount.solo >= modeLimits.solo && 
+    modeCount.duet >= modeLimits.duet && 
+    modeCount.suffer >= modeLimits.suffer;
 
   return (
     <section className="animate-fadeInUp delay-200 opacity-0" style={{ animationFillMode: 'forwards' }}>
@@ -35,25 +42,27 @@ export default function ModeSelector({
         Pilih Mode
         {selectedUser && (
           <span className="text-sm font-normal text-text-muted">
-            ({submittedModes.size}/3)
+            ({totalSongs}/{maxSongs} lagu)
           </span>
         )}
       </h2>
 
       {/* Show completion message */}
-      {allModesSubmitted && selectedUser && (
+      {allLimitsReached && selectedUser && (
         <div className="mb-4 p-4 bg-green-500/10 border-2 border-green-500/40 rounded-xl text-center">
           <span className="text-2xl">🎉</span>
           <p className="text-green-400 font-medium mt-1">
-            {selectedUser.name} sudah submit semua mode!
+            {selectedUser.name} sudah submit semua lagu!
           </p>
         </div>
       )}
 
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {modes.map((mode) => {
-          const isSubmitted = submittedModes.has(mode.id);
-          const isDisabled = isSubmitted;
+          const count = modeCount[mode.id];
+          const limit = modeLimits[mode.id];
+          const isAtLimit = count >= limit;
+          const isDisabled = isAtLimit;
           
           return (
             <button
@@ -80,31 +89,56 @@ export default function ModeSelector({
                              : mode.color === 'cyan'
                                ? 'border-neon-cyan glow-cyan bg-neon-cyan/10'
                                : 'border-neon-purple glow-purple bg-neon-purple/10'
-                           : isSubmitted
+                           : isAtLimit
                              ? 'border-green-500/50 bg-green-500/10'
                              : 'border-white/10 hover:border-white/30'
                          }`}
             >
-              {/* Checkmark for submitted modes */}
-              {isSubmitted && (
-                <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  ✓
-                </div>
-              )}
-              
               <div className="relative z-10">
                 <div className="text-3xl sm:text-4xl mb-2">{mode.icon}</div>
                 <h3 className={`font-display text-base sm:text-xl tracking-wider
-                  ${isSubmitted 
+                  ${isAtLimit 
                     ? 'text-green-400' 
                     : mode.color === 'pink' ? 'text-neon-pink' : 
                       mode.color === 'cyan' ? 'text-neon-cyan' : 'text-neon-purple'
                   }`}>
                   {mode.label}
                 </h3>
-                {isSubmitted && (
-                  <p className="text-green-400/70 text-xs mt-1">Sudah submit</p>
-                )}
+                
+                {/* Progress indicator */}
+                <div className="mt-3 space-y-1.5">
+                  {/* Count display */}
+                  <div className={`text-sm font-bold font-display tracking-wide
+                    ${isAtLimit 
+                      ? 'text-green-400' 
+                      : mode.color === 'pink' ? 'text-neon-pink' : 
+                        mode.color === 'cyan' ? 'text-neon-cyan' : 'text-neon-purple'
+                    }`}>
+                    {count}<span className="text-text-muted font-normal">/{limit}</span>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ease-out
+                        ${isAtLimit 
+                          ? 'bg-green-500' 
+                          : mode.color === 'pink' ? 'bg-neon-pink' : 
+                            mode.color === 'cyan' ? 'bg-neon-cyan' : 'bg-neon-purple'
+                        }`}
+                      style={{ width: `${(count / limit) * 100}%` }}
+                    />
+                  </div>
+                  
+                  {/* Status text */}
+                  <p className={`text-[10px] sm:text-xs
+                    ${isAtLimit 
+                      ? 'text-green-400' 
+                      : 'text-text-muted'
+                    }`}>
+                    {isAtLimit ? '✓ Penuh!' : `Sisa ${limit - count} lagu`}
+                  </p>
+                </div>
               </div>
             </button>
           );
@@ -112,7 +146,7 @@ export default function ModeSelector({
       </div>
 
       {/* Duet Partner Selection */}
-      {selectedMode === "duet" && !submittedModes.has("duet") && (
+      {selectedMode === "duet" && modeCount.duet < modeLimits.duet && (
         <div className="mt-5 p-4 bg-card/80 rounded-xl border-2 border-neon-cyan/40 animate-fadeInUp">
           <h3 className="flex items-center justify-center gap-2 font-display text-base sm:text-lg tracking-wider mb-3 text-neon-cyan text-center">
             <span>💑</span>

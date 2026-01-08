@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, SongRequestDB, isSupabaseConfigured } from '@/lib/supabase';
 import { SongRequest, User, SongMode } from '@/data/users';
 
@@ -23,6 +23,13 @@ export function useSongQueue() {
   const [queue, setQueue] = useState<SongRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const initialized = useRef(false);
+
+  // Mark as client-side after mount
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Fetch initial data
   const fetchQueue = useCallback(async () => {
@@ -54,14 +61,18 @@ export function useSongQueue() {
     }
   }, []);
 
-  // Subscribe to real-time changes
+  // Subscribe to real-time changes - only on client
   useEffect(() => {
-    // Skip if Supabase is not configured (during build)
+    // Skip if not on client yet or already initialized
+    if (!isClient || initialized.current) return;
+    
+    // Skip if Supabase is not configured
     if (!isSupabaseConfigured) {
       setLoading(false);
       return;
     }
 
+    initialized.current = true;
     fetchQueue();
 
     const channel = supabase
@@ -90,7 +101,7 @@ export function useSongQueue() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchQueue]);
+  }, [isClient, fetchQueue]);
 
   // Add song request
   const addRequest = async (
