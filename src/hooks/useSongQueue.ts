@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { supabase, SongRequestDB } from '@/lib/supabase';
+import { supabase, SongRequestDB, isSupabaseConfigured } from '@/lib/supabase';
 import { SongRequest, User, SongMode } from '@/data/users';
 
 // Convert DB format to app format
@@ -26,6 +26,12 @@ export function useSongQueue() {
 
   // Fetch initial data
   const fetchQueue = useCallback(async () => {
+    // Skip if Supabase is not configured (during build)
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('song_requests')
@@ -50,6 +56,12 @@ export function useSongQueue() {
 
   // Subscribe to real-time changes
   useEffect(() => {
+    // Skip if Supabase is not configured (during build)
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
     fetchQueue();
 
     const channel = supabase
@@ -88,6 +100,11 @@ export function useSongQueue() {
     artist: string,
     duetPartner?: User
   ): Promise<boolean> => {
+    if (!isSupabaseConfigured) {
+      setError('Database tidak terkonfigurasi');
+      return false;
+    }
+
     try {
       const { error } = await supabase.from('song_requests').insert({
         id: Date.now().toString(),
@@ -111,6 +128,11 @@ export function useSongQueue() {
 
   // Remove song request
   const removeRequest = async (id: string): Promise<boolean> => {
+    if (!isSupabaseConfigured) {
+      setError('Database tidak terkonfigurasi');
+      return false;
+    }
+
     try {
       const { error } = await supabase
         .from('song_requests')
